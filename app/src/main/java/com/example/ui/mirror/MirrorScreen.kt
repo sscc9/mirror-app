@@ -78,6 +78,7 @@ fun LiquidGlassBox(
     backdrop: Backdrop?,
     modifier: Modifier = Modifier,
     cornerRadius: Dp = 32.dp,
+    surfaceColor: Color = Color.Black.copy(alpha = 0.05f),
     content: @Composable BoxScope.() -> Unit
 ) {
     if (backdrop != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -93,7 +94,7 @@ fun LiquidGlassBox(
                     },
                     highlight = { Highlight.Default },
                     onDrawSurface = {
-                        drawRect(Color.Black.copy(alpha = 0.05f))
+                        drawRect(surfaceColor)
                     }
                 )
         ) {
@@ -335,6 +336,13 @@ fun MirrorContent(
     var lastPanelInteractionTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val backdrop = rememberLayerBackdrop()
 
+    // Top Guide Tip
+    var showInstructions by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        delay(5000)
+        showInstructions = false
+    }
+
     // 改动1: 左侧 1/4 亮度滑动 HUD State
     var isBrightnessSliding by remember { mutableStateOf(false) }
     var lastBrightnessSlideTime by remember { mutableLongStateOf(0L) }
@@ -382,6 +390,7 @@ fun MirrorContent(
             .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = { offset ->
+                        showInstructions = false
                         val w = size.width.toFloat()
                         if (offset.x >= w * 0.25f && offset.x <= w * 0.75f) {
                             viewModel.toggleControlsVisibility()
@@ -394,6 +403,7 @@ fun MirrorContent(
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
                     onDragStart = { offset ->
+                        showInstructions = false
                         val w = size.width.toFloat()
                         val edgePadding = 24.dp.toPx()
                         if (offset.x in edgePadding..(w * 0.25f)) {
@@ -539,33 +549,28 @@ fun MirrorContent(
             )
         }
 
-        // Top Guide Tip
-        var showInstructions by remember { mutableStateOf(true) }
-        LaunchedEffect(Unit) {
-            delay(3500)
-            showInstructions = false
-        }
         AnimatedVisibility(
-            visible = showInstructions && !uiState.isControlsVisible && !uiState.isFrozen,
-            enter = fadeIn(),
-            exit = fadeOut(),
+            visible = showInstructions,
+            enter = fadeIn(animationSpec = tween(200)) + scaleIn(initialScale = 0.9f, animationSpec = tween(200)),
+            exit = fadeOut(animationSpec = tween(300)),
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = 28.dp)
+                .fillMaxHeight(0.66f)
+                .wrapContentSize(Alignment.BottomCenter)
         ) {
-            Box(
-                modifier = Modifier
-                    .shadow(4.dp, RoundedCornerShape(16.dp))
-                    .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
-                    .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(16.dp))
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            LiquidGlassBox(
+                backdrop = backdrop,
+                cornerRadius = 50.dp,
+                surfaceColor = Color.Black.copy(alpha = 0.30f)
             ) {
-                Text(
-                    text = "点击中央显示面板 | 左侧滑动亮度 / 右侧滑动变焦",
-                    color = Color.White.copy(alpha = 0.9f),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium
-                )
+                Box(modifier = Modifier.padding(horizontal = 24.dp, vertical = 14.dp)) {
+                    Text(
+                        text = "点击中央显示面板 | 左侧滑动亮度 / 右侧滑动变焦",
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
 
