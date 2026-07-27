@@ -7,7 +7,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 data class MirrorUiState(
-    val isCameraPermissionGranted: Boolean = false,
     val isControlsVisible: Boolean = false, // Default hidden as requested
     val zoomRatio: Float = 1.0f,
     val maxZoomRatio: Float = 8.0f,
@@ -24,10 +23,6 @@ class MirrorViewModel : ViewModel() {
 
     private val _uiState = MutableStateFlow(MirrorUiState())
     val uiState = _uiState.asStateFlow()
-
-    fun setCameraPermissionGranted(granted: Boolean) {
-        _uiState.update { it.copy(isCameraPermissionGranted = granted) }
-    }
 
     fun toggleControlsVisibility() {
         _uiState.update { it.copy(isControlsVisible = !it.isControlsVisible) }

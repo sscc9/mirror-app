@@ -120,10 +120,6 @@ fun MirrorScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val cameraPermissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
 
-    LaunchedEffect(cameraPermissionState.status.isGranted) {
-        viewModel.setCameraPermissionGranted(cameraPermissionState.status.isGranted)
-    }
-
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = Color.Black
@@ -133,7 +129,7 @@ fun MirrorScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            if (uiState.isCameraPermissionGranted) {
+            if (cameraPermissionState.status.isGranted) {
                 MirrorContent(viewModel = viewModel, uiState = uiState)
             } else {
                 PermissionRequestScreen(
