@@ -54,6 +54,7 @@ import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -87,17 +88,13 @@ fun LiquidGlassBox(
                     shape = { RoundedCornerShape(cornerRadius) },
                     effects = {
                         vibrancy()
-                        blur(32f)
-                        lens(14.dp.toPx(), 24.dp.toPx())
+                        blur(6.dp.toPx())
+                        lens(24.dp.toPx(), 48.dp.toPx(), depthEffect = true, chromaticAberration = true)
                     },
+                    highlight = { Highlight.Default },
                     onDrawSurface = {
-                        drawRect(Color.White.copy(alpha = 0.12f))
+                        drawRect(Color.Black.copy(alpha = 0.05f))
                     }
-                )
-                .border(
-                    width = 1.2.dp,
-                    color = Color.White.copy(alpha = 0.35f),
-                    shape = RoundedCornerShape(cornerRadius)
                 )
         ) {
             content()
@@ -294,15 +291,11 @@ fun MirrorContent(
     val mainExecutor = remember(context) { ContextCompat.getMainExecutor(context) }
 
     // Screen Brightness controller
-    LaunchedEffect(uiState.isRingLightOn, uiState.screenBrightness) {
+    LaunchedEffect(uiState.screenBrightness) {
         val activity = context as? Activity
         if (activity != null) {
             val lp = activity.window.attributes
-            if (uiState.isRingLightOn) {
-                lp.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL
-            } else {
-                lp.screenBrightness = uiState.screenBrightness.coerceIn(0.1f, 1.0f)
-            }
+            lp.screenBrightness = uiState.screenBrightness.coerceIn(0.1f, 1.0f)
             activity.window.attributes = lp
         }
     }
@@ -411,9 +404,6 @@ fun MirrorContent(
                             activeDragRegion = "left"
                             isBrightnessSliding = true
                             lastBrightnessSlideTime = System.currentTimeMillis()
-                            if (!uiState.isRingLightOn) {
-                                viewModel.toggleRingLight()
-                            }
                         } else if (offset.x in (w * 0.75f)..(w - edgePadding)) {
                             activeDragRegion = "right"
                             isZoomSliding = true
@@ -444,20 +434,14 @@ fun MirrorContent(
                     },
                     onVerticalDrag = { change, dragAmount ->
                         change.consume()
-                        val sensitivity = 0.0035f
                         if (activeDragRegion == "left") {
                             isBrightnessSliding = true
                             lastBrightnessSlideTime = System.currentTimeMillis()
-                            val delta = -dragAmount * sensitivity
-                            val newBrightness = (uiState.ringLightBrightness + delta).coerceIn(0.1f, 1.0f)
-                            viewModel.setRingLightBrightness(newBrightness)
+                            viewModel.adjustScreenBrightness(-dragAmount * 0.0035f)
                         } else if (activeDragRegion == "right") {
                             isZoomSliding = true
                             lastZoomSlideTime = System.currentTimeMillis()
-                            val zoomRange = 4.0f // 1.0x to 5.0x
-                            val delta = -dragAmount * sensitivity * zoomRange * 0.4f
-                            val newZoom = (uiState.zoomRatio + delta).coerceIn(1.0f, 5.0f)
-                            viewModel.setZoomRatio(newZoom)
+                            viewModel.adjustZoom(-dragAmount * 0.005f)
                         }
                     }
                 )
@@ -481,24 +465,7 @@ fun MirrorContent(
             CameraGridOverlay()
         }
 
-        // 3. Ring Light Fill Soft Envelope
-        AnimatedVisibility(
-            visible = uiState.isRingLightOn,
-            enter = fadeIn(animationSpec = tween(400)),
-            exit = fadeOut(animationSpec = tween(400)),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .border(
-                        width = (36.dp * uiState.ringLightBrightness).coerceAtLeast(8.dp),
-                        color = Color(uiState.ringLightColor.hexColor).copy(alpha = uiState.ringLightBrightness)
-                    )
-            )
-        }
-
-        // 4. Frozen Frame Still Overlay
+        // 3. Frozen Frame Still Overlay
         AnimatedVisibility(
             visible = uiState.isFrozen && uiState.frozenBitmap != null,
             enter = fadeIn(animationSpec = tween(300)),
@@ -542,18 +509,20 @@ fun MirrorContent(
             }
         }
 
-        // 改动1 HUD: 左侧 1/4 滑动补光亮度 HUD (中央偏左)
+        // 改动1 HUD: 左侧 1/4 滑动屏幕亮度 HUD (中央偏左)
         AnimatedVisibility(
             visible = showBrightnessHUD,
             enter = fadeIn(animationSpec = tween(150)) + scaleIn(initialScale = 0.92f),
             exit = fadeOut(animationSpec = tween(300)),
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .padding(start = 56.dp)
+                .padding(start = 20.dp)
         ) {
-            CenterLeftBrightnessHUD(
+            VerticalSliderHUD(
                 backdrop = backdrop,
-                brightness = uiState.ringLightBrightness
+                icon = Icons.Rounded.WbSunny,
+                progress = uiState.screenBrightness,
+                text = "${(uiState.screenBrightness * 100).toInt()}%"
             )
         }
 
@@ -564,11 +533,13 @@ fun MirrorContent(
             exit = fadeOut(animationSpec = tween(300)),
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .padding(end = 56.dp)
+                .padding(end = 20.dp)
         ) {
-            CenterRightZoomHUD(
+            VerticalSliderHUD(
                 backdrop = backdrop,
-                zoomRatio = uiState.zoomRatio
+                icon = Icons.Rounded.ZoomIn,
+                progress = (uiState.zoomRatio - 1.0f) / (uiState.maxZoomRatio - 1.0f),
+                text = String.format(java.util.Locale.US, "%.1fx", uiState.zoomRatio)
             )
         }
 
@@ -594,7 +565,7 @@ fun MirrorContent(
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 Text(
-                    text = "点击中央显示面板 | 左侧滑动补光 / 右侧滑动变焦",
+                    text = "点击中央显示面板 | 左侧滑动亮度 / 右侧滑动变焦",
                     color = Color.White.copy(alpha = 0.9f),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium
@@ -616,51 +587,6 @@ fun MirrorContent(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Ring Light Color Selector (Floats above when ring light is active)
-                AnimatedVisibility(
-                    visible = uiState.isRingLightOn,
-                    enter = expandIn(expandFrom = Alignment.BottomCenter) + fadeIn(),
-                    exit = shrinkOut(shrinkTowards = Alignment.BottomCenter) + fadeOut(),
-                    modifier = Modifier.padding(bottom = 12.dp)
-                ) {
-                    LiquidGlassBox(
-                        backdrop = backdrop,
-                        cornerRadius = 24.dp,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RingLightColor.values().forEach { col ->
-                                val isSelected = uiState.ringLightColor == col
-                                AssistChip(
-                                    onClick = {
-                                        viewModel.setRingLightColor(col)
-                                        lastPanelInteractionTime = System.currentTimeMillis()
-                                    },
-                                    label = {
-                                        Text(
-                                            text = col.displayName,
-                                            fontSize = 11.sp,
-                                            color = if (isSelected) Color.Black else Color.White,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                    },
-                                    colors = AssistChipDefaults.assistChipColors(
-                                        containerColor = if (isSelected) Color(col.hexColor) else Color.Transparent,
-                                        labelColor = if (isSelected) Color.Black else Color.White
-                                    ),
-                                    border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.25f))
-                                )
-                            }
-                        }
-                    }
-                }
-
                 // PRIMARY LIQUID GLASS BOTTOM PANEL
                 LiquidGlassBox(
                     backdrop = backdrop,
@@ -676,19 +602,7 @@ fun MirrorContent(
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // 1. 补光开关
-                        MirrorIconButton(
-                            icon = if (uiState.isRingLightOn) Icons.Filled.WbSunny else Icons.Outlined.WbSunny,
-                            contentDescription = stringResource(R.string.control_light),
-                            isSelected = uiState.isRingLightOn,
-                            onClick = {
-                                viewModel.toggleRingLight()
-                                lastPanelInteractionTime = System.currentTimeMillis()
-                            },
-                            label = "补光"
-                        )
-
-                        // 2. 网格开关
+                        // 1. 网格开关
                         MirrorIconButton(
                             icon = Icons.Rounded.Grid3x3,
                             contentDescription = stringResource(R.string.control_grid),
@@ -817,12 +731,14 @@ fun MirrorContent(
 }
 
 /**
- * 改动1: 中央偏左显示的竖直补光亮度进度条+百分比 HUD
+ * Unified Vertical Slider HUD for Brightness and Zoom
  */
 @Composable
-fun CenterLeftBrightnessHUD(
+fun VerticalSliderHUD(
     backdrop: Backdrop,
-    brightness: Float // 0.1f..1.0f
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    progress: Float,
+    text: String
 ) {
     LiquidGlassBox(
         backdrop = backdrop,
@@ -839,12 +755,12 @@ fun CenterLeftBrightnessHUD(
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Icon(
-                imageVector = Icons.Rounded.WbSunny,
+                imageVector = icon,
                 contentDescription = null,
                 tint = Color.White,
                 modifier = Modifier.size(20.dp)
             )
-
+            
             // Vertical progress bar capsule
             Box(
                 modifier = Modifier
@@ -856,16 +772,14 @@ fun CenterLeftBrightnessHUD(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .fillMaxHeight(brightness.coerceIn(0f, 1f))
+                        .fillMaxHeight(progress.coerceIn(0f, 1f))
                         .align(Alignment.BottomCenter)
                         .background(Color.White, CircleShape)
                 )
             }
-
             Spacer(modifier = Modifier.height(8.dp))
-
             Text(
-                text = "${(brightness * 100).toInt()}%",
+                text = text,
                 color = Color.White,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
@@ -875,43 +789,6 @@ fun CenterLeftBrightnessHUD(
     }
 }
 
-/**
- * 改动2: 中央偏右显示的放大倍率数字 HUD
- */
-@Composable
-fun CenterRightZoomHUD(
-    backdrop: Backdrop,
-    zoomRatio: Float // 1.0f..5.0f
-) {
-    LiquidGlassBox(
-        backdrop = backdrop,
-        cornerRadius = 20.dp,
-        modifier = Modifier
-            .width(72.dp)
-            .height(80.dp)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.ZoomIn,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(22.dp)
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = String.format("%.1fx", zoomRatio),
-                color = Color.White,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-        }
-    }
-}
 
 @Composable
 fun MirrorIconButton(

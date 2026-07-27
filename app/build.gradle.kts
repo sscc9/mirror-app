@@ -8,7 +8,7 @@ plugins {
 
 android {
   namespace = "com.example"
-  compileSdk { version = release(36) { minorApiLevel = 1 } }
+  compileSdk = 37
 
   defaultConfig {
     applicationId = "com.aistudio.mirror.uwyvcl"
@@ -100,7 +100,7 @@ dependencies {
   implementation(libs.okhttp)
   // implementation(libs.play.services.location)
   implementation(libs.retrofit)
-  implementation("com.github.Kyant0:AndroidLiquidGlass:1.0.0-rc01")
+  implementation("io.github.kyant0:backdrop:2.0.0")
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)
