@@ -1,0 +1,6 @@
+{
+  "name": "镜子",
+  "description": "一款现代美观、高画质、超低延迟的极简镜子应用，配备柔和补光灯、网格线、多倍变焦与画面定格功能，完美呈现极速、低功耗的镜面体验。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

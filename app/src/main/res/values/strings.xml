@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">镜子</string>
+    <string name="permission_required_title">需要相机权限</string>
+    <string name="permission_required_desc">镜子应用需要开启前置相机，才能为您提供实时镜面预览。请在下方授权以继续使用。</string>
+    <string name="grant_permission">开启相机权限</string>
+    <string name="control_zoom">缩放控制</string>
+    <string name="control_brightness">亮度调节</string>
+    <string name="control_freeze">定格画面</string>
+    <string name="control_unfreeze">恢复画面</string>
+    <string name="control_flip">左右翻转</string>
+    <string name="control_grid">网格参考线</string>
+    <string name="control_light">补光灯</string>
+    <string name="tip_tap_to_hide">双击或单击屏幕可隐藏/显示控制面板</string>
+    <string name="aspect_ratio">屏幕比例</string>
+    <string name="dark_mode">暗色模式</string>
+</resources>
